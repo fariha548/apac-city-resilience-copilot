@@ -37,11 +37,15 @@ def get_recent_incident_count(conn, ward_id, days=30):
     ).fetchone()
     return row["cnt"] if row else 0
 
-def get_rainfall_trend_and_projection(conn, ward_id):
+
+def get_rainfall_projection(conn, ward_id):
     """
     Pure-python linear regression over historical rainfall_mm readings
     to project rainfall 3 days ahead. No numpy dependency (Cloud Run friendly).
-    Returns (projected_rainfall, trend_direction) or (None, None) if insufficient data.
+    Returns projected_rainfall or None if insufficient data.
+    Trend direction is NOT decided here — it's decided later, relative to the
+    current risk score vs predicted_risk_3day, so the label and the number
+    always agree with each other.
     """
     rows = conn.execute(
         """SELECT forecast_date, rainfall_mm FROM weather_forecast
@@ -49,12 +53,11 @@ def get_rainfall_trend_and_projection(conn, ward_id):
            ORDER BY forecast_date DESC LIMIT 10""",
         (ward_id,)
     ).fetchall()
-    rows = list(reversed(rows))  # chronological order for regression
+    rows = list(reversed(rows))
 
     if len(rows) < 2:
-        return None, None
+        return None
 
-    # x = day index (0, 1, 2, ...), y = rainfall_mm
     n = len(rows)
     xs = list(range(n))
     ys = [r["rainfall_mm"] for r in rows]
@@ -66,22 +69,14 @@ def get_rainfall_trend_and_projection(conn, ward_id):
     denominator = sum((xs[i] - mean_x) ** 2 for i in range(n))
 
     if denominator == 0:
-        return ys[-1], "stable"
+        return ys[-1]
 
     slope = numerator / denominator
     intercept = mean_y - slope * mean_x
-
-    projected_day = n + 2  # 3 days ahead of last known day
+    projected_day = n + 2
     projected_rainfall = max(0.0, intercept + slope * projected_day)
 
-    if slope > 0.5:
-        direction = "worsening"
-    elif slope < -0.5:
-        direction = "improving"
-    else:
-        direction = "stable"
-
-    return round(projected_rainfall, 2), direction
+    return round(projected_rainfall, 2)
 
 
 def compute_risk_for_ward(conn, ward):
@@ -94,7 +89,7 @@ def compute_risk_for_ward(conn, ward):
     rainfall_72h = latest_weather["rainfall_forecast_72h"] or 0
     baseline_rainfall = get_ward_baseline_rainfall(conn, ward_id)
     incident_count = get_recent_incident_count(conn, ward_id)
-    projected_rainfall, trend_direction = get_rainfall_trend_and_projection(conn, ward_id)
+    projected_rainfall = get_rainfall_projection(conn, ward_id)
 
     rainfall_norm = normalize(rainfall_72h, 0, 150)
     drainage_risk = 1 - ward["drainage_capacity_index"]
@@ -110,7 +105,9 @@ def compute_risk_for_ward(conn, ward):
         0.05 * incident_freq_norm
     )
     score = round(min(1.0, max(0.0, score)), 3)
+
     predicted_risk_3day = None
+    trend_direction = "stable"
     if projected_rainfall is not None:
         projected_rainfall_norm = normalize(projected_rainfall, 0, 150)
         predicted_score = (
@@ -121,6 +118,14 @@ def compute_risk_for_ward(conn, ward):
             0.05 * incident_freq_norm
         )
         predicted_risk_3day = round(min(1.0, max(0.0, predicted_score)), 3)
+
+        delta = predicted_risk_3day - score
+        if delta > 0.02:
+            trend_direction = "worsening"
+        elif delta < -0.02:
+            trend_direction = "improving"
+        else:
+            trend_direction = "stable"
 
     is_anomaly = False
     anomaly_reason = None
