@@ -1,14 +1,30 @@
-# APAC City Resilience Copilot
+# 🌊 APAC City Resilience Copilot
 
-**Flood-risk decision intelligence for Karachi and Manila — built for the Google Gen AI Academy, APAC Edition, Cohort 2 (Track 1: AI-Powered Decision Intelligence Platform)**
+### Flood-Risk Decision Intelligence for Karachi & Manila
 
-🔗 **Live App**: https://resilience-copilot.web.app
-🔗 **Live API**: https://resilience-copilot-backend-804820919576.asia-south1.run.app
-👤 **Builder**: Fariha Imran — solo, Karachi-based, self-taught AI Developer & Builder
+**Google Gen AI Academy — APAC Edition, Cohort 2 (Track 1: AI-Powered Decision Intelligence Platform)**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5--flash-4285F4.svg)](https://ai.google.dev/)
+[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-4285F4.svg)](https://cloud.google.com/run)
+[![Firebase](https://img.shields.io/badge/Firebase-Hosting-FFCA28.svg)](https://firebase.google.com/)
+[![Secret Manager](https://img.shields.io/badge/Secrets-Secret%20Manager-34A853.svg)](https://cloud.google.com/secret-manager)
 
 ---
 
-## Why this exists
+## 🌐 Live Demo
+
+| Service | URL |
+|---|---|
+| **Web App** | https://resilience-copilot.web.app |
+| **API Root** | https://resilience-copilot-backend-804820919576.asia-south1.run.app |
+| **Health Check** | https://resilience-copilot-backend-804820919576.asia-south1.run.app/health |
+| **Risk Dashboard API** | https://resilience-copilot-backend-804820919576.asia-south1.run.app/risk-dashboard |
+
+---
+
+## 🚨 Why This Exists
 
 > Pichle saal main khud is exact problem mein phas gayi thi — ek route pe gayi jahan gaadi paani mein doob gayi, kisi ne warn nahi kiya. Authorities ke pass ward-level data hota hai, lekin road-level real-time hazard sirf woh log jaante hain jo wahan se guzre. Yeh feature woh gap fill karta hai — community warns community, verified through crowd-consensus, delivered in the user's own language.
 
@@ -16,29 +32,43 @@ Flood warnings usually fail for two reasons: forecasts speak in probabilities ("
 
 ---
 
-## What it does
+## 💡 What It Does
 
 | Capability | Description |
 |---|---|
-| **Ward Risk Dashboard** | Live flood-risk scores, anomaly detection, and 3-day trend projection across **18 wards — 14 in Karachi, 4 in Manila** |
-| **Satellite Risk Map** | Ward-level risk overlaid on real satellite basemap imagery |
-| **Public Advisory Copilot** | Gemini-powered assistant that turns raw risk data into a plain-language advisory — automatically in the language the citizen asked in |
-| **Community Hazard Reporting** | Residents report road-level hazards (open manholes, exposed wires, submerged roads); severity is never self-declared — it's derived server-side and life-threatening hazards are held for human review before they reach the public |
+| 📊 **Ward Risk Dashboard** | Live flood-risk scores, anomaly detection, and 3-day trend projection across **18 wards — 14 in Karachi, 4 in Manila** |
+| 🛰️ **Satellite Risk Map** | Ward-level risk overlaid on satellite basemap imagery |
+| 🗣️ **Public Advisory Copilot** | Gemini-powered assistant that turns raw risk data into plain-language guidance — automatically in the language the citizen asked in |
+| ⚠️ **Community Hazard Reporting** | Residents report road-level hazards; severity is never self-declared — derived server-side, with life-threatening reports held for human review before reaching the public |
 
-**Proof point**: the same scoring and advisory pipeline runs unmodified across two countries (Pakistan and the Philippines) — the architecture is city-agnostic by design, not hardcoded to Karachi.
-
----
-
-## Measurable value
-
-- **18 wards, 2 cities monitored** with zero code changes between them — demonstrates the platform scales across APAC without per-city engineering
-- **5 of 8 hazard types auto-resolve instantly** (moderate severity), while the **3 life-threatening types** (exposed wiring, submerged roads, flooded underpasses) are automatically routed to human review — cutting manual triage load while keeping a human in the loop exactly where it matters
-- **3-day predictive lead time** on flood risk per ward, computed from a live linear regression over rainfall history — not just a snapshot of current conditions
-- **Deterministic language routing** on the public advisory endpoint — the citizen gets a reply in the language they asked in (English or Urdu, written in proper Nastaliq script, never Roman Urdu), decided in code rather than left to the model to guess
+**Proof point**: the same scoring and advisory pipeline runs unmodified across two countries — the architecture is city-agnostic by design, not hardcoded to Karachi.
 
 ---
 
-## Architecture
+## ✅ Live & Verified — Tested End-to-End
+
+| Feature | Status | Verified Behavior |
+|---|---|---|
+| Risk Dashboard | ✅ Live | 18 wards scored, gauge/KPI update on ward selection |
+| Trend Projection | ✅ Live | `trend_direction` computed as delta between current score and 3-day projection — fixed a real inconsistency bug pre-submission |
+| Satellite Map | ✅ Live | Karachi + Manila markers render on Esri World Imagery |
+| Public Advisory (English) | ✅ Live | English query → full English response |
+| Public Advisory (Urdu) | ✅ Live | Urdu-script query → full Urdu **Nastaliq script** response, deterministic code-level routing (not left to model self-detection) |
+| Hazard Reporting — Critical | ✅ Live | `exposed_electric_wire` → `pending_review`, dynamic warning banner shown pre-submit |
+| Hazard Reporting — Moderate | ✅ Live | `open_manhole` → `auto_approved` instantly |
+
+---
+
+## 📈 Measurable Value
+
+- **18 wards, 2 cities monitored** with zero code changes between them — proves APAC scalability without per-city engineering
+- **5 of 8 hazard types auto-resolve instantly** (moderate severity); the **3 life-threatening types** are automatically routed to human review — cutting manual triage load while keeping a human in the loop exactly where it matters
+- **3-day predictive lead time** on flood risk per ward, from a live linear regression over rainfall history — not just a snapshot
+- **Deterministic language routing** — code-level detection guarantees response language, rather than hoping the model infers it correctly
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TB
@@ -55,12 +85,12 @@ flowchart TB
     end
 
     subgraph Data["Data"]
-        DB[("SQLite\nbaked into container image\nwards · weather · incidents · risk_scores · recommendations · hazard_reports")]
+        DB[("SQLite\nbaked into container image")]
     end
 
     subgraph Google["Google Cloud"]
         Gemini["Gemini API\ngemini-2.5-flash"]
-        Secrets["Secret Manager\nAPI key"]
+        Secrets["Secret Manager"]
     end
 
     UI -->|HTTPS| RiskAgent
@@ -77,13 +107,13 @@ flowchart TB
     Advisory -->|Gemini call| Gemini
     Gemini -.->|key injected at runtime| Secrets
 
-    Hazard -->|critical severity| Pending["pending_review"]
-    Hazard -->|moderate severity| Auto["auto_approved"]
+    Hazard -->|critical| Pending["pending_review"]
+    Hazard -->|moderate| Auto["auto_approved"]
     Pending -.->|excluded until cleared| Advisory
     Auto -->|feeds into| Advisory
 ```
 
-**Human-in-the-loop flow for hazard reports**:
+**Human-in-the-loop flow:**
 
 ```mermaid
 sequenceDiagram
@@ -93,10 +123,10 @@ sequenceDiagram
     participant Advisory as Public Advisory
 
     Citizen->>API: Report hazard (ward, type, description)
-    API->>API: Derive severity from hazard_type\n(never trust client-declared severity)
+    API->>API: Derive severity server-side\n(never trust client-declared severity)
     alt Critical (exposed wire, submerged road, flooded underpass)
         API->>DB: Insert as pending_review
-        Note over DB,Advisory: Excluded from public advisory\nuntil a human clears it
+        Note over DB,Advisory: Excluded until a human clears it
     else Moderate (5 other types)
         API->>DB: Insert as auto_approved
         DB->>Advisory: Included in next advisory response
@@ -105,50 +135,46 @@ sequenceDiagram
 
 ---
 
-## Security & trust-boundary decisions
+## 🔒 Security & Trust-Boundary Decisions
 
-This project treats trust boundaries as a design constraint, not an afterthought:
-
-- **Severity is never client-supplied.** A `HAZARD_SEVERITY_MAP` on the server is the single source of truth for which hazard types are life-threatening. Letting a reporter self-declare severity would let a malicious or careless submission mark a live wire as "low" and skip human review entirely.
-- **HITL gate on critical hazards.** Exposed wiring, submerged roads, and flooded underpasses are held as `pending_review` and excluded from the public advisory's context until a human clears them. Moderate hazards (potholes, fallen branches, etc.) auto-approve.
-- **Prompt injection defense.** User-submitted hazard descriptions are wrapped in explicit `<DATA>` delimiters in the Gemini system prompt and labeled as data, not instructions — the model is told not to treat anything inside as a command.
-- **Deterministic language routing.** Early versions relied on asking Gemini to detect the query's language and match it — this was inconsistent under testing (English questions sometimes returned Roman Urdu). The fix moved language detection into code (Unicode range check for Urdu script) so the response language is guaranteed rather than requested.
-- **Input length caps.** Public queries and hazard descriptions are capped server-side (500 / 300 characters) to bound the cost and blast radius of any single request against the LLM.
-- **Secrets never hardcoded.** The Gemini API key lives in Google Secret Manager and is injected into the container at runtime — it is not in the repo, not in an environment file that gets committed, and not visible in logs.
-- **Known, documented gap:** CORS is currently `allow_origins=["*"]` to keep the hackathon demo simple with no auth wall. This is a real trust-boundary gap for a production deployment and is called out here deliberately rather than left silent — the fix is to lock it to the Firebase Hosting origin once the app has a fixed audience.
+- **Severity is never client-supplied.** A server-side `HAZARD_SEVERITY_MAP` is the single source of truth — letting a reporter self-declare severity would let a malicious submission mark a live wire as "low" and skip human review.
+- **HITL gate on critical hazards.** Exposed wiring, submerged roads, and flooded underpasses stay `pending_review` and excluded from the public advisory until a human clears them.
+- **Prompt injection defense.** User-submitted hazard descriptions are wrapped in explicit `<DATA>` delimiters, labeled as data, not instructions.
+- **Deterministic language routing.** Early versions asked Gemini to self-detect query language — inconsistent under testing (English questions returned Roman Urdu). Fixed by moving detection into code (Unicode range check), guaranteeing response language instead of requesting it.
+- **Input length caps.** Queries and hazard descriptions capped server-side (500 / 300 characters) to bound cost and blast radius per request.
+- **Secrets never hardcoded.** Gemini API key lives in Secret Manager, injected at runtime — never in the repo or committed env files.
+- **Known, documented gap:** CORS is `allow_origins=["*"]` for the hackathon demo — called out deliberately rather than hidden. Production fix: lock to the Firebase Hosting origin.
 
 ---
 
-## Google Cloud ecosystem usage
+## 🛠️ Google Cloud Ecosystem
 
 | Service | Role |
 |---|---|
-| **Cloud Run** | Hosts the FastAPI backend; `--min-instances=1` keeps one instance warm so in-session writes (hazard reports, new risk scores) aren't lost to a cold start during a live demo |
-| **Artifact Registry** | Container images built and stored automatically as part of `gcloud run deploy --source .` |
-| **Cloud Build** | Builds the container from source on every deploy |
-| **Secret Manager** | Stores the Gemini API key; injected into the container via `--set-secrets`, never hardcoded |
-| **Cloud Logging** | Captures backend stdout/stderr automatically for observability |
-| **IAM** | Least-privilege roles granted incrementally to the deploy service account (storage, logging, Artifact Registry, Secret Manager access) |
-| **Firebase Hosting** | Serves the static frontend at the public app URL |
-| **Gemini API** (`gemini-2.5-flash`) | Powers both the officer-facing Copilot and the citizen-facing public advisory |
+| **Cloud Run** | Hosts the FastAPI backend; `--min-instances=1` keeps one instance warm so in-session writes survive a live demo |
+| **Artifact Registry** | Container images built and stored automatically on every deploy |
+| **Cloud Build** | Builds the container from source |
+| **Secret Manager** | Stores the Gemini API key; injected via `--set-secrets` |
+| **Cloud Logging** | Captures backend stdout/stderr automatically |
+| **IAM** | Least-privilege roles granted incrementally to the deploy service account |
+| **Firebase Hosting** | Serves the static frontend |
+| **Gemini API** (`gemini-2.5-flash`) | Powers the officer Copilot and citizen-facing advisory |
 
-**Evaluated and consciously not used**: Google Maps Platform was considered for the risk map, but Esri World Imagery (free, no API key, already tested and working) was kept for the hackathon timeline. Switching to Maps Platform is a planned production upgrade, not a gap in capability.
-
----
-
-## Known limitations
-
-Documented honestly rather than hidden:
-
-- **Ephemeral writes on Cloud Run.** SQLite lives inside the container filesystem, which is wiped on a cold start. Read data (wards, seeded history) is baked into the image and safe; runtime writes (new hazard reports, new risk-score rows) are mitigated with `--min-instances=1` so the same instance persists through a demo session, but this is not a substitute for a managed database in production.
-- **No "list all hazard reports" endpoint yet.** The Hazard Reports tab shows only the current browser session's submissions and resets on refresh.
-- **No rate limiting on advisory endpoints yet.** Input length caps bound the cost per request, but there's no throttle on request frequency.
-- **`flooded_underpass` is assumed critical** alongside exposed wiring and submerged roads — a reasonable default given Karachi's underpass flooding history, but not yet reconfirmed against local incident data.
-- **CORS is open (`*`)** for the hackathon demo — see Security section above.
+**Evaluated, consciously not used**: Google Maps Platform was considered for the risk map; Esri World Imagery (free, no API key, already tested) was kept for the hackathon timeline. Maps Platform is a planned production upgrade, not a capability gap.
 
 ---
 
-## Setup
+## ⚠️ Known Limitations
+
+- **Ephemeral writes on Cloud Run** — SQLite lives inside the container filesystem, wiped on cold start. Seeded read data is baked into the image and safe; runtime writes are mitigated with `--min-instances=1`, not a substitute for a managed database in production.
+- **No "list all hazard reports" endpoint yet** — Hazard Reports tab shows only the current session's submissions.
+- **No rate limiting on advisory endpoints yet** — input caps bound cost per request, but not request frequency.
+- **`flooded_underpass` assumed critical** alongside exposed wiring and submerged roads — reasonable default, not yet reconfirmed against local incident data.
+- **CORS is open (`*`)** for the hackathon demo — see Security section.
+
+---
+
+## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/fariha548/apac-city-resilience-copilot.git
@@ -160,39 +186,66 @@ pip install -r requirements.txt
 
 cp .env.example .env             # add your own GEMINI_API_KEY
 
-uvicorn main:app --reload        # runs at http://127.0.0.1:8000
+uvicorn main:app --reload        # http://127.0.0.1:8000
 ```
 
-The seeded SQLite database (`app/db/resilience.db`) ships with the repo — no migration step is needed to get real data on first run.
+The seeded SQLite database (`app/db/resilience.db`) ships with the repo — no migration step needed for real data on first run.
 
-To deploy your own copy to Cloud Run, see the included `Dockerfile`; the project uses `gcloud run deploy --source .` with the Gemini key supplied via Secret Manager rather than an environment file.
+To deploy your own copy to Cloud Run, see the included `Dockerfile`; deploy via `gcloud run deploy --source .` with the Gemini key supplied through Secret Manager.
 
 ---
 
-## API endpoints
+## 📡 API Endpoints
 
-| Method | Path | Purpose |
+| Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/health` | Liveness check |
 | `GET` | `/risk-dashboard` | Latest risk score + trend for every ward |
-| `GET` | `/ward/{ward_id}` | Full detail for one ward: profile, risk, recommendations |
-| `POST` | `/recommendation/{rec_id}/approve` | HITL: approve a pending recommendation |
-| `POST` | `/recommendation/{rec_id}/reject` | HITL: reject a pending recommendation |
-| `POST` | `/advisory/public` | Citizen-facing Gemini advisory for one ward, language-matched |
-| `POST` | `/advisory/hazard-report` | Submit a community hazard report; severity derived server-side |
+| `GET` | `/ward/{ward_id}` | Full detail for one ward |
+| `POST` | `/recommendation/{rec_id}/approve` | HITL: approve a recommendation |
+| `POST` | `/recommendation/{rec_id}/reject` | HITL: reject a recommendation |
+| `POST` | `/advisory/public` | Citizen-facing Gemini advisory, language-matched |
+| `POST` | `/advisory/hazard-report` | Submit hazard report; severity derived server-side |
 
 ---
 
-## Stack
+## 🧱 Tech Stack
 
-FastAPI · SQLite · Gemini API (`gemini-2.5-flash`, via `google-genai`) · Google Cloud Run · Firebase Hosting · Secret Manager · Leaflet + Esri World Imagery · React (CDN, no build step)
+| Layer | Technology |
+|---|---|
+| AI Model | Gemini 2.5 Flash (`google-genai` SDK) |
+| Backend | FastAPI |
+| Database | SQLite (demo) → Cloud SQL (production roadmap) |
+| Deployment | Google Cloud Run — `asia-south1` |
+| Hosting | Firebase Hosting |
+| Secrets | Google Secret Manager |
+| Map | Leaflet + Esri World Imagery |
+| Frontend | React (CDN, no build step) |
+| Language | Python 3.11 |
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
-- Manual language toggle in the UI, in addition to the current automatic detection
+- Manual language toggle in the UI, alongside current automatic detection
 - Additional APAC languages (starting with Tagalog) as more cities are added
-- Managed database (Cloud SQL) to remove the ephemeral-write limitation
+- Cloud SQL migration to remove the ephemeral-write limitation
 - Rate limiting on public-facing endpoints
 - Google Maps Platform integration for the risk map
+
+---
+
+## 🏆 Hackathon
+
+**Google Gen AI Academy — APAC Edition, Cohort 2**
+Track 1 — AI-Powered Decision Intelligence Platform
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+*Built solo, for two cities, in one language pipeline that speaks both.*
