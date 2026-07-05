@@ -10,6 +10,7 @@
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-4285F4.svg)](https://cloud.google.com/run)
 [![Firebase](https://img.shields.io/badge/Firebase-Hosting-FFCA28.svg)](https://firebase.google.com/)
 [![Secret Manager](https://img.shields.io/badge/Secrets-Secret%20Manager-34A853.svg)](https://cloud.google.com/secret-manager)
+[![OpenWeatherMap](https://img.shields.io/badge/Weather-OpenWeatherMap-EB6E4B.svg)](https://openweathermap.org/)
 
 ---
 
@@ -36,7 +37,7 @@ Flood warnings usually fail for two reasons: forecasts speak in probabilities ("
 
 | Capability | Description |
 |---|---|
-| 📊 **Ward Risk Dashboard** | Live flood-risk scores, anomaly detection, and 3-day trend projection across **18 wards — 14 in Karachi, 4 in Manila** |
+| 📊 **Ward Risk Dashboard** | Live flood-risk scores, anomaly detection, and 3-day trend projection across **18 wards — 14 in Karachi, 4 in Manila**, with live 72-hour rainfall forecast (OpenWeatherMap) feeding directly into the trend model |
 | 🛰️ **Satellite Risk Map** | Ward-level risk overlaid on satellite basemap imagery |
 | 🗣️ **Public Advisory Copilot** | Gemini-powered assistant that turns raw risk data into plain-language guidance — automatically in the language the citizen asked in |
 | ⚠️ **Community Hazard Reporting** | Residents report road-level hazards; severity is never self-declared — derived server-side, with life-threatening reports held for human review before reaching the public |
@@ -51,6 +52,7 @@ Flood warnings usually fail for two reasons: forecasts speak in probabilities ("
 |---|---|---|
 | Risk Dashboard | ✅ Live | 18 wards scored, gauge/KPI update on ward selection |
 | Trend Projection | ✅ Live | `trend_direction` computed as delta between current score and 3-day projection — fixed a real inconsistency bug pre-submission |
+| Live Weather Feed | ✅ Live | OpenWeatherMap 72h rainfall forecast fetched per ward on each risk computation; falls back to seeded forecast (never zero) if the API call fails |
 | Satellite Map | ✅ Live | Karachi + Manila markers render on Esri World Imagery |
 | Public Advisory (English) | ✅ Live | English query → full English response |
 | Public Advisory (Urdu) | ✅ Live | Urdu-script query → full Urdu **Nastaliq script** response, deterministic code-level routing (not left to model self-detection) |
@@ -63,7 +65,7 @@ Flood warnings usually fail for two reasons: forecasts speak in probabilities ("
 
 - **18 wards, 2 cities monitored** with zero code changes between them — proves APAC scalability without per-city engineering
 - **5 of 8 hazard types auto-resolve instantly** (moderate severity); the **3 life-threatening types** are automatically routed to human review — cutting manual triage load while keeping a human in the loop exactly where it matters
-- **3-day predictive lead time** on flood risk per ward, from a live linear regression over rainfall history — not just a snapshot
+- **3-day predictive lead time** on flood risk per ward, from a live linear regression over rainfall history, now grounded in live 72-hour rainfall forecasts rather than seeded data alone
 - **Deterministic language routing** — code-level detection guarantees response language, rather than hoping the model infers it correctly
 
 ---
@@ -93,11 +95,17 @@ flowchart TB
         Secrets["Secret Manager"]
     end
 
+    subgraph External["External API"]
+        Weather["OpenWeatherMap\n72h rainfall forecast"]
+    end
+
     UI -->|HTTPS| RiskAgent
     UI -->|HTTPS| Advisory
     UI -->|HTTPS| Hazard
 
     RiskAgent --> DB
+    RiskAgent -->|per-ward lat/lng| Weather
+    Weather -.->|live rainfall_72h,\nor null on failure| RiskAgent
     RecAgent --> DB
     Copilot --> DB
     Advisory --> DB
@@ -106,6 +114,7 @@ flowchart TB
     Copilot -->|Gemini call| Gemini
     Advisory -->|Gemini call| Gemini
     Gemini -.->|key injected at runtime| Secrets
+    Weather -.->|key injected at runtime| Secrets
 
     Hazard -->|critical| Pending["pending_review"]
     Hazard -->|moderate| Auto["auto_approved"]
@@ -141,8 +150,9 @@ sequenceDiagram
 - **HITL gate on critical hazards.** Exposed wiring, submerged roads, and flooded underpasses stay `pending_review` and excluded from the public advisory until a human clears them.
 - **Prompt injection defense.** User-submitted hazard descriptions are wrapped in explicit `<DATA>` delimiters, labeled as data, not instructions.
 - **Deterministic language routing.** Early versions asked Gemini to self-detect query language — inconsistent under testing (English questions returned Roman Urdu). Fixed by moving detection into code (Unicode range check), guaranteeing response language instead of requesting it.
+- **Fail-safe on external weather dependency.** `fetch_live_rainfall_72h()` returns `None` (never `0.0`) on any API failure or timeout, so a dead third-party API can't silently zero out a ward's rainfall input and understate flood risk — the system falls back to seeded forecast data instead.
 - **Input length caps.** Queries and hazard descriptions capped server-side (500 / 300 characters) to bound cost and blast radius per request.
-- **Secrets never hardcoded.** Gemini API key lives in Secret Manager, injected at runtime — never in the repo or committed env files.
+- **Secrets never hardcoded.** Gemini API key and OpenWeatherMap API key both live in Secret Manager, injected at runtime — never in the repo or committed env files.
 - **Known, documented gap:** CORS is `allow_origins=["*"]` for the hackathon demo — called out deliberately rather than hidden. Production fix: lock to the Firebase Hosting origin.
 
 ---
@@ -154,11 +164,13 @@ sequenceDiagram
 | **Cloud Run** | Hosts the FastAPI backend; `--min-instances=1` keeps one instance warm so in-session writes survive a live demo |
 | **Artifact Registry** | Container images built and stored automatically on every deploy |
 | **Cloud Build** | Builds the container from source |
-| **Secret Manager** | Stores the Gemini API key; injected via `--set-secrets` |
+| **Secret Manager** | Stores the Gemini API key and OpenWeatherMap API key; both injected via `--set-secrets` |
 | **Cloud Logging** | Captures backend stdout/stderr automatically |
 | **IAM** | Least-privilege roles granted incrementally to the deploy service account |
 | **Firebase Hosting** | Serves the static frontend |
 | **Gemini API** (`gemini-2.5-flash`) | Powers the officer Copilot and citizen-facing advisory |
+
+**External data**: OpenWeatherMap (72h rainfall forecast) — API key stored via Secret Manager, same pattern as the Gemini key.
 
 **Evaluated, consciously not used**: Google Maps Platform was considered for the risk map; Esri World Imagery (free, no API key, already tested) was kept for the hackathon timeline. Maps Platform is a planned production upgrade, not a capability gap.
 
@@ -167,6 +179,7 @@ sequenceDiagram
 ## ⚠️ Known Limitations
 
 - **Ephemeral writes on Cloud Run** — SQLite lives inside the container filesystem, wiped on cold start. Seeded read data is baked into the image and safe; runtime writes are mitigated with `--min-instances=1`, not a substitute for a managed database in production.
+- **Live weather dependency has an 8-second timeout** — under sustained OpenWeatherMap latency or an outage, all wards silently fall back to seeded forecast data rather than failing the request.
 - **No "list all hazard reports" endpoint yet** — Hazard Reports tab shows only the current session's submissions.
 - **No rate limiting on advisory endpoints yet** — input caps bound cost per request, but not request frequency.
 - **`flooded_underpass` assumed critical** alongside exposed wiring and submerged roads — reasonable default, not yet reconfirmed against local incident data.
@@ -184,14 +197,14 @@ python -m venv venv
 venv\Scripts\Activate.ps1        # Windows PowerShell
 pip install -r requirements.txt
 
-cp .env.example .env             # add your own GEMINI_API_KEY
+cp .env.example .env             # add your own GEMINI_API_KEY and OPENWEATHER_API_KEY
 
 uvicorn main:app --reload        # http://127.0.0.1:8000
 ```
 
 The seeded SQLite database (`app/db/resilience.db`) ships with the repo — no migration step needed for real data on first run.
 
-To deploy your own copy to Cloud Run, see the included `Dockerfile`; deploy via `gcloud run deploy --source .` with the Gemini key supplied through Secret Manager.
+To deploy your own copy to Cloud Run, see the included `Dockerfile`; deploy via `gcloud run deploy --source .` with the Gemini key and OpenWeatherMap key supplied through Secret Manager.
 
 ---
 
@@ -200,7 +213,7 @@ To deploy your own copy to Cloud Run, see the included `Dockerfile`; deploy via 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/health` | Liveness check |
-| `GET` | `/risk-dashboard` | Latest risk score + trend for every ward |
+| `GET` | `/risk-dashboard` | Latest risk score + trend for every ward, incorporating live rainfall forecast |
 | `GET` | `/ward/{ward_id}` | Full detail for one ward |
 | `POST` | `/recommendation/{rec_id}/approve` | HITL: approve a recommendation |
 | `POST` | `/recommendation/{rec_id}/reject` | HITL: reject a recommendation |
@@ -219,6 +232,7 @@ To deploy your own copy to Cloud Run, see the included `Dockerfile`; deploy via 
 | Deployment | Google Cloud Run — `asia-south1` |
 | Hosting | Firebase Hosting |
 | Secrets | Google Secret Manager |
+| Weather Data | OpenWeatherMap API (72h rainfall forecast) |
 | Map | Leaflet + Esri World Imagery |
 | Frontend | React (CDN, no build step) |
 | Language | Python 3.11 |
