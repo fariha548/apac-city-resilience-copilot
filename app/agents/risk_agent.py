@@ -1,6 +1,30 @@
 import json
 import statistics
 from app.db.database import get_connection
+import os
+import httpx
+
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
+OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
+
+
+def fetch_live_rainfall_72h(lat: float, lng: float):
+    """Sum forecast rainfall (mm) over the next 72 hours from OpenWeatherMap's
+    3-hour-step forecast endpoint. Returns None (not 0.0) on any failure so the
+    caller can tell 'no live data' apart from 'genuinely zero rain' and fall
+    back to the seeded forecast instead of silently overwriting it with zero."""
+    if not OPENWEATHER_API_KEY:
+        return None
+    params = {"lat": lat, "lon": lng, "appid": OPENWEATHER_API_KEY, "units": "metric"}
+    try:
+        resp = httpx.get(OPENWEATHER_URL, params=params, timeout=8.0)
+        resp.raise_for_status()
+        data = resp.json()
+        slots = data.get("list", [])[:24]  # 24 x 3h = 72h
+        total = sum(slot.get("rain", {}).get("3h", 0.0) for slot in slots)
+        return round(total, 1)
+    except Exception:
+        return None
 
 
 def normalize(value, min_val, max_val):
@@ -86,7 +110,8 @@ def compute_risk_for_ward(conn, ward):
     if not latest_weather:
         return None
 
-    rainfall_72h = latest_weather["rainfall_forecast_72h"] or 0
+    live_rainfall = fetch_live_rainfall_72h(ward["latitude"], ward["longitude"])
+    rainfall_72h = live_rainfall if live_rainfall is not None else (latest_weather["rainfall_forecast_72h"] or 0)
     baseline_rainfall = get_ward_baseline_rainfall(conn, ward_id)
     incident_count = get_recent_incident_count(conn, ward_id)
     projected_rainfall = get_rainfall_projection(conn, ward_id)
